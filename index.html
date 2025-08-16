@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Portal</title>
+  <style>
+    :root{
+      --bg:#0b0f15;
+      --card:#121826;
+      --text:#e6edf3;
+      --muted:#8b97a8;
+      --accent:#3b82f6;
+      --border:#233047;
+      --success:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Noto Sans",sans-serif;
+      background:linear-gradient(180deg,#0b0f15, #0d1320 50%, #0b0f15 100%) fixed;
+      color:var(--text);
+    }
+    .container{max-width:1200px;margin:0 auto;padding:20px}
+    .hidden{display:none!important}
+
+    /* Card + layout */
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.0)) , var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:16px;
+      box-shadow:0 10px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .row{display:flex; gap:16px; flex-wrap:wrap}
+    .row > .col{flex:1 1 280px}
+    .spacer{height:14px}
+
+    /* Header */
+    .header{
+      display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;
+    }
+    .title{font-weight:700; font-size:20px; letter-spacing:.2px}
+    .subtle{color:var(--muted); font-size:13px}
+    .toolbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+
+    /* Tabs */
+    .tabs{display:flex; gap:8px; margin:0}
+    .tab-btn{
+      appearance:none; border:1px solid var(--border); color:var(--text);
+      background:#0e1625; padding:8px 12px; border-radius:10px; cursor:pointer;
+    }
+    .tab-btn.active{background:linear-gradient(180deg,rgba(59,130,246,.2),rgba(59,130,246,.05)); border-color:#2a3a58}
+    .section{display:none}
+    .section.active{display:block}
+
+    /* Buttons */
+    .btn{
+      appearance:none; border:1px solid var(--border); background:#0e1625; color:var(--text);
+      padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:600;
+    }
+    .btn:hover{filter:brightness(1.05)}
+    .btn.primary{background:linear-gradient(180deg, #2563eb, #1d4ed8); border-color:#1e3a8a}
+    .btn.success{background:linear-gradient(180deg,#16a34a,#15803d); border-color:#14532d}
+    .btn.warn{background:linear-gradient(180deg,#f59e0b,#d97706); border-color:#92400e}
+    .btn.ghost{background:transparent}
+
+    /* Inputs */
+    .input, select{
+      background:#0e1625; color:var(--text); border:1px solid var(--border);
+      padding:8px 10px; border-radius:10px; outline:none; min-height:36px;
+    }
+    .input::placeholder{color:#94a3b8}
+    label{font-size:12px; color:var(--muted); display:block; margin:6px 0 4px}
+
+    /* Stats cards */
+    .stat{
+      display:flex; flex-direction:column; gap:6px; padding:14px;
+      background:linear-gradient(180deg, rgba(255,255,255,.03), transparent), #0e1625;
+      border:1px solid var(--border); border-radius:12px;
+    }
+    .stat .num{font-size:28px; font-weight:800}
+    .stat .label{color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.12em}
+
+    /* Table */
+    .table-wrap{overflow:auto; border:1px solid var(--border); border-radius:12px}
+    table{width:100%; border-collapse:separate; border-spacing:0}
+    thead th{
+      text-align:left; padding:12px; font-size:12px; color:var(--muted);
+      background:#0f172a; position:sticky; top:0; z-index:1;
+    }
+    tbody td{padding:10px 12px; border-top:1px solid var(--border); vertical-align:middle}
+    tbody tr:hover{background:rgba(255,255,255,.02)}
+    .badge{
+      display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:700;
+      border:1px solid var(--border);
+    }
+    .badge.pending{color:#fbbf24; background:rgba(251,191,36,.12); border-color:#4a3b14}
+    .badge.resolved{color:#34d399; background:rgba(52,211,153,.12); border-color:#144d3b}
+
+    /* Modal */
+    .modal-backdrop{
+      position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:1000;
+    }
+    .modal{width:min(680px, 92vw)}
+    .modal-backdrop.show{display:flex}
+
+    /* Toast */
+    .toast{
+      position:fixed; right:16px; bottom:16px; padding:10px 14px; background:#0f172a; border:1px solid var(--border);
+      border-radius:10px; opacity:0; transform:translateY(8px); transition:all .2s; z-index:1100
+    }
+    .toast.show{opacity:1; transform:none}
+
+    /* Login (centered) */
+    .login-wrap{height:100vh; display:grid; place-items:center; padding:20px}
+    .login-card{width:min(420px, 92vw); text-align:center}
+    .login-card label{text-align:center}
+
+    /* Charts */
+    .charts{display:grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap:16px}
+
+    /* Small */
+    @media (max-width: 800px){
+      .header{flex-direction:column; align-items:flex-start; gap:8px}
+      .toolbar{width:100%; justify-content:space-between}
+      .tabs{flex-wrap:wrap}
+    }
+    @media (max-width: 640px){
+      .toolbar .input{flex:1}
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login Screen -->
+  <div id="loginScreen" class="login-wrap">
+    <div class="card login-card">
+      <div class="title">Admin Login</div>
+      <div class="subtle">Enter password to continue</div>
+      <div class="spacer"></div>
+      <label for="adminPassword">Password</label>
+      <input id="adminPassword" class="input" type="password" placeholder="••••••••" />
+      <div class="spacer"></div>
+      <div style="display:flex; gap:10px; align-items:center; justify-content:center;">
+        <button id="loginBtn" class="btn primary">Login</button>
+      </div>
+      <div id="loginError" class="subtle" style="color:#fca5a5; margin-top:8px; display:none;">Wrong password</div>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div id="app" class="container hidden">
+    <div class="header">
+      <div>
+        <div class="title">Admin Portal</div>
+        <div class="subtle">Dashboard, New Complaints, and Analytics</div>
+      </div>
+      <div class="toolbar" style="gap:12px;">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+          <button class="tab-btn" data-tab="new">New Complaints</button>
+          <button class="tab-btn" data-tab="analytics">Analytics</button>
+        </div>
+        <button id="logoutBtn" class="btn">Log out</button>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <section id="dashboard" class="section active">
+      <div class="row">
+        <div class="col">
+          <div class="stat">
+            <div class="label">Total complaints</div>
+            <div id="statTotal" class="num">0</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="stat">
+            <div class="label">Pending</div>
+            <div id="statPending" class="num">0</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="stat">
+            <div class="label">Resolved</div>
+            <div id="statResolved" class="num">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="card">
+        <div class="toolbar" style="justify-content:space-between;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; min-width:240px;">
+            <input id="searchInput" class="input" placeholder="Search by name, email, or roll no." style="min-width:260px;" />
+            <button id="searchClearBtn" class="btn">Clear</button>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="addNoticeBtn" class="btn">Add a notice</button>
+            <button id="editNoticeBtn" class="btn">Edit notice</button>
+            <button id="removeNoticeBtn" class="btn warn">Remove notice</button>
+            <button id="refreshDashBtn" class="btn">Refresh</button>
+          </div>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>AR ID</th>
+                <th>Name</th>
+                <th>Roll No.</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Course</th>
+                <th>Year</th>
+                <th>Status</th>
+                <th style="width:220px">Action</th>
+              </tr>
+            </thead>
+            <tbody id="dashTableBody">
+              <!-- rows injected -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- New Complaints -->
+    <section id="new" class="section">
+      <div class="card">
+        <div class="toolbar" style="justify-content:space-between;">
+          <div class="title">New Complaints</div>
+          <button id="refreshNewBtn" class="btn">Refresh</button>
+        </div>
+        <div class="spacer"></div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>AR ID</th>
+                <th>Name</th>
+                <th>Roll No.</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Course</th>
+                <th>Year</th>
+                <th>Status</th>
+                <th style="width:220px">Action</th>
+              </tr>
+            </thead>
+            <tbody id="newTableBody">
+              <!-- rows injected -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Analytics -->
+    <section id="analytics" class="section">
+      <div class="row">
+        <div class="col">
+          <div class="stat">
+            <div class="label">Total complaints</div>
+            <div id="aTotal" class="num">0</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="stat">
+            <div class="label">Pending</div>
+            <div id="aPending" class="num">0</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="stat">
+            <div class="label">Resolved</div>
+            <div id="aResolved" class="num">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="card">
+        <div class="toolbar" style="justify-content:space-between;">
+          <div class="title">Charts</div>
+          <button id="refreshAnalyticsBtn" class="btn">Refresh</button>
+        </div>
+        <div class="spacer"></div>
+
+        <div class="charts">
+          <div class="card">
+            <div class="subtle" style="margin-bottom:8px;">Status distribution</div>
+            <canvas id="chartStatus" height="220"></canvas>
+          </div>
+          <div class="card">
+            <div class="subtle" style="margin-bottom:8px;">Course wise</div>
+            <canvas id="chartCourse" height="220"></canvas>
+          </div>
+          <div class="card">
+            <div class="subtle" style="margin-bottom:8px;">Year wise</div>
+            <canvas id="chartYear" height="220"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Add Notice Modal -->
+  <div id="noticeModal" class="modal-backdrop">
+    <div class="modal card">
+      <div class="title">Add a Notice</div>
+      <div class="subtle">This will appear on the student portal's notice section</div>
+      <div class="spacer"></div>
+      <form id="noticeForm">
+        <div class="row">
+          <div class="col">
+            <label for="nTitle">Title</label>
+            <input id="nTitle" class="input" required placeholder="Holiday Notice" />
+          </div>
+          <div class="col">
+            <label for="nTag">Tag (optional)</label>
+            <input id="nTag" class="input" placeholder="General / Exams / Event" />
+          </div>
+        </div>
+        <label for="nContent">Content (optional)</label>
+        <textarea id="nContent" class="input" rows="4" placeholder="Write a short description"></textarea>
+        <div class="row">
+          <div class="col">
+            <label for="nLink">Link (optional)</label>
+            <input id="nLink" class="input" type="url" placeholder="https://example.com/details" />
+          </div>
+          <div class="col">
+            <label for="nImageUrl">Image URL (optional)</label>
+            <input id="nImageUrl" class="input" type="url" placeholder="https://.../image.jpg" />
+            <div class="subtle" style="margin-top:6px;">Tip: For a free setup, host images in your GitHub repo and paste the raw URL here.</div>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="toolbar" style="justify-content:flex-end;">
+          <button type="button" id="cancelNoticeBtn" class="btn">Cancel</button>
+          <button type="submit" class="btn primary">Publish Notice</button>
+        </div>
+        <div id="noticeStatus" class="subtle" style="margin-top:6px;"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Notice Modal -->
+  <div id="editNoticeModal" class="modal-backdrop">
+    <div class="modal card">
+      <div class="title">Edit Notice</div>
+      <div class="subtle">Select a published notice to edit</div>
+      <div class="spacer"></div>
+      <form id="editNoticeForm">
+        <label for="editNoticeSelect">Choose notice</label>
+        <select id="editNoticeSelect" class="input"></select>
+        <div class="spacer"></div>
+        <div class="row">
+          <div class="col">
+            <label for="eTitle">Title</label>
+            <input id="eTitle" class="input" required />
+          </div>
+          <div class="col">
+            <label for="eTag">Tag (optional)</label>
+            <input id="eTag" class="input" />
+          </div>
+        </div>
+        <label for="eContent">Content (optional)</label>
+        <textarea id="eContent" class="input" rows="4"></textarea>
+        <div class="row">
+          <div class="col">
+            <label for="eLink">Link (optional)</label>
+            <input id="eLink" class="input" type="url" />
+          </div>
+          <div class="col">
+            <label for="eImageUrl">Image URL (optional)</label>
+            <input id="eImageUrl" class="input" type="url" />
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="toolbar" style="justify-content:flex-end;">
+          <button type="button" id="cancelEditNoticeBtn" class="btn">Cancel</button>
+          <button type="submit" class="btn primary">Save Changes</button>
+        </div>
+        <div id="editNoticeStatus" class="subtle" style="margin-top:6px;"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Remove Notice Modal -->
+  <div id="removeNoticeModal" class="modal-backdrop">
+    <div class="modal card">
+      <div class="title">Remove Notice</div>
+      <div class="subtle">Select a published notice to delete</div>
+      <div class="spacer"></div>
+      <form id="removeNoticeForm">
+        <label for="removeNoticeSelect">Choose notice</label>
+        <select id="removeNoticeSelect" class="input"></select>
+        <div class="spacer"></div>
+        <div class="toolbar" style="justify-content:flex-end;">
+          <button type="button" id="cancelRemoveNoticeBtn" class="btn">Cancel</button>
+          <button type="submit" class="btn warn">Delete Notice</button>
+        </div>
+        <div id="removeNoticeStatus" class="subtle" style="margin-top:6px;"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App Script -->
+  <script type="module">
+    // Firebase (no auth)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAEwpdyTaxjLsRhnGLqGgAOdmGTXXjHeHc",
+      authDomain: "anti-ragging-system-7b7f1.firebaseapp.com",
+      projectId: "anti-ragging-system-7b7f1",
+      storageBucket: "anti-ragging-system-7b7f1.firebasestorage.app",
+      messagingSenderId: "308700904830",
+      appId: "1:308700904830:web:06a6ad14b7879d167e472f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Collections
+    const COMPLAINTS = "complaints";
+    const NOTICES = "notices";
+
+    // UI Elements
+    const loginScreen = document.getElementById('loginScreen');
+    const appEl = document.getElementById('app');
+    const loginBtn = document.getElementById('loginBtn');
+    const adminPassword = document.getElementById('adminPassword');
+    const loginError = document.getElementById('loginError');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const sections = document.querySelectorAll('.section');
+
+    const statTotal = document.getElementById('statTotal');
+    const statPending = document.getElementById('statPending');
+    const statResolved = document.getElementById('statResolved');
+
+    const dashBody = document.getElementById('dashTableBody');
+    const newBody = document.getElementById('newTableBody');
+
+    const searchInput = document.getElementById('searchInput');
+    const searchClearBtn = document.getElementById('searchClearBtn');
+    const refreshDashBtn = document.getElementById('refreshDashBtn');
+    const refreshNewBtn = document.getElementById('refreshNewBtn');
+    const refreshAnalyticsBtn = document.getElementById('refreshAnalyticsBtn');
+
+    const addNoticeBtn = document.getElementById('addNoticeBtn');
+    const editNoticeBtn = document.getElementById('editNoticeBtn');
+    const removeNoticeBtn = document.getElementById('removeNoticeBtn');
+
+    const noticeModal = document.getElementById('noticeModal');
+    const cancelNoticeBtn = document.getElementById('cancelNoticeBtn');
+    const noticeForm = document.getElementById('noticeForm');
+    const noticeStatus = document.getElementById('noticeStatus');
+
+    const editNoticeModal = document.getElementById('editNoticeModal');
+    const editNoticeForm = document.getElementById('editNoticeForm');
+    const editNoticeSelect = document.getElementById('editNoticeSelect');
+    const eTitle = document.getElementById('eTitle');
+    const eTag = document.getElementById('eTag');
+    const eContent = document.getElementById('eContent');
+    const eLink = document.getElementById('eLink');
+    const eImageUrl = document.getElementById('eImageUrl');
+    const editNoticeStatus = document.getElementById('editNoticeStatus');
+    const cancelEditNoticeBtn = document.getElementById('cancelEditNoticeBtn');
+
+    const removeNoticeModal = document.getElementById('removeNoticeModal');
+    const removeNoticeForm = document.getElementById('removeNoticeForm');
+    const removeNoticeSelect = document.getElementById('removeNoticeSelect');
+    const removeNoticeStatus = document.getElementById('removeNoticeStatus');
+    const cancelRemoveNoticeBtn = document.getElementById('cancelRemoveNoticeBtn');
+
+    const aTotal = document.getElementById('aTotal');
+    const aPending = document.getElementById('aPending');
+    const aResolved = document.getElementById('aResolved');
+
+    const toast = document.getElementById('toast');
+
+    // Charts
+    let chartStatus, chartCourse, chartYear;
+
+    // Session (password-only)
+    const ADMIN_PASS = "admin123";
+    function showToast(msg, ms=1800){ toast.textContent = msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); }
+    function login(){
+      if (adminPassword.value === ADMIN_PASS){
+        localStorage.setItem('admin_logged_in', '1');
+        loginScreen.classList.add('hidden');
+        appEl.classList.remove('hidden');
+        initialLoad();
+      } else {
+        loginError.style.display = 'block';
+      }
+    }
+    function logout(){
+      localStorage.removeItem('admin_logged_in');
+      appEl.classList.add('hidden');
+      loginScreen.classList.remove('hidden');
+      adminPassword.value = '';
+    }
+    loginBtn.addEventListener('click', login);
+    adminPassword.addEventListener('keydown', (e)=>{ if(e.key==='Enter') login(); });
+    logoutBtn.addEventListener('click', logout);
+    if (localStorage.getItem('admin_logged_in') === '1'){
+      loginScreen.classList.add('hidden');
+      appEl.classList.remove('hidden');
+      setTimeout(initialLoad, 0);
+    }
+
+    // Data state and helpers
+    let allComplaints = []; // normalized list
+    let allNotices = [];    // for edit/remove
+
+    function normalizeComplaint(d){
+      const status = (d.status || 'pending').toString().toLowerCase();
+      return {
+        id: d.id,
+        arId: d.arId || d.ARID || d.arID || d.id || d.docId || d.AR || d.roll || d.email || d.name || d.phone || d.id,
+        name: d.name || d.fullName || '',
+        roll: d.roll || d.rollNo || d.rollNumber || '',
+        email: d.email || '',
+        phone: d.phone || '',
+        course: d.course || '',
+        year: d.year || d.academicYear || '',
+        status,
+        createdAt: d.createdAt || null,
+      };
+    }
+
+    async function fetchComplaints(){
+      let snap;
+      try {
+        snap = await getDocs(query(collection(db, COMPLAINTS), orderBy('createdAt', 'desc')));
+      } catch {
+        snap = await getDocs(collection(db, COMPLAINTS));
+      }
+      const list = [];
+      snap.forEach(docSnap=>{
+        const data = docSnap.data() || {};
+        list.push(normalizeComplaint({ id: docSnap.id, ...data }));
+      });
+      allComplaints = list;
+    }
+
+    function getFilteredForDashboard(){
+      const q = (searchInput.value || '').trim().toLowerCase();
+      if (!q) return allComplaints;
+      return allComplaints.filter(c =>
+        (c.name || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.roll || '').toLowerCase().includes(q)
+      );
+    }
+    function getNewComplaints(){
+      return allComplaints.filter(c => (c.status||'').toLowerCase() === 'pending');
+    }
+
+    function renderCounts(list){
+      const total = list.length;
+      const pending = list.filter(c=>c.status==='pending').length;
+      const resolved = list.filter(c=>c.status==='resolved').length;
+      statTotal.textContent = total;
+      statPending.textContent = pending;
+      statResolved.textContent = resolved;
+      aTotal.textContent = total;
+      aPending.textContent = pending;
+      aResolved.textContent = resolved;
+    }
+
+    function renderTable(list, tbodyEl){
+      tbodyEl.innerHTML = '';
+      if (!list.length){
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 9;
+        td.className = 'subtle';
+        td.textContent = 'No data';
+        tr.appendChild(td);
+        tbodyEl.appendChild(tr);
+        return;
+      }
+      for (const c of list){
+        const tr = document.createElement('tr');
+
+        tr.innerHTML = `
+          <td>${escapeHtml(c.arId||'')}</td>
+          <td>${escapeHtml(c.name||'')}</td>
+          <td>${escapeHtml(c.roll||'')}</td>
+          <td>${escapeHtml(c.email||'')}</td>
+          <td>${escapeHtml(c.phone||'')}</td>
+          <td>${escapeHtml(c.course||'')}</td>
+          <td>${escapeHtml(c.year||'')}</td>
+          <td>
+            <span class="badge ${c.status==='resolved'?'resolved':'pending'}">${c.status==='resolved'?'Resolved':'Pending'}</span>
+          </td>
+          <td>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select class="input status-select">
+                <option value="pending" ${c.status==='pending'?'selected':''}>Pending</option>
+                <option value="resolved" ${c.status==='resolved'?'selected':''}>Resolved</option>
+              </select>
+              <button class="btn success update-btn">Update</button>
+            </div>
+          </td>
+        `;
+        const select = tr.querySelector('.status-select');
+        const updateBtn = tr.querySelector('.update-btn');
+        updateBtn.addEventListener('click', async ()=>{
+          const newStatus = select.value;
+          await updateComplaintStatus(c.id, newStatus, tr);
+        });
+
+        tbodyEl.appendChild(tr);
+      }
+    }
+
+    function escapeHtml(s){
+      return (s||'').toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    async function updateComplaintStatus(id, newStatus, rowEl){
+      try{
+        const btn = rowEl.querySelector('.update-btn');
+        const oldText = btn.textContent;
+        btn.textContent = 'Saving...';
+        btn.disabled = true;
+
+        await updateDoc(doc(db, COMPLAINTS, id), { status: newStatus });
+
+        const item = allComplaints.find(x=>x.id===id);
+        if (item){ item.status = newStatus.toLowerCase(); }
+
+        renderCounts(allComplaints);
+        renderTable(getFilteredForDashboard(), dashBody);
+        renderTable(getNewComplaints(), newBody);
+
+        showToast('Status updated');
+        btn.textContent = oldText;
+        btn.disabled = false;
+      }catch(e){
+        console.error(e);
+        showToast('Failed to update');
+        try{
+          const btn = rowEl.querySelector('.update-btn');
+          btn.textContent = 'Update';
+          btn.disabled = false;
+        }catch{}
+      }
+    }
+
+    // Notices: Add
+    function openNoticeModal(){
+      noticeForm.reset();
+      noticeStatus.textContent = '';
+      noticeModal.classList.add('show');
+    }
+    function closeNoticeModal(){
+      noticeModal.classList.remove('show');
+    }
+    addNoticeBtn.addEventListener('click', openNoticeModal);
+    cancelNoticeBtn.addEventListener('click', closeNoticeModal);
+    noticeModal.addEventListener('click', (e)=>{ if(e.target === noticeModal) closeNoticeModal(); });
+
+    noticeForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const title = document.getElementById('nTitle').value.trim();
+      const tag = document.getElementById('nTag').value.trim();
+      const content = document.getElementById('nContent').value.trim();
+      const link = document.getElementById('nLink').value.trim();
+      const imageUrl = document.getElementById('nImageUrl').value.trim();
+
+      if (!title){ noticeStatus.textContent = 'Title is required.'; return; }
+      noticeStatus.textContent = 'Publishing...';
+
+      try{
+        await addDoc(collection(db, NOTICES), {
+          title,
+          tag,
+          content,
+          link,
+          imageUrl,
+          publishedAt: serverTimestamp()
+        });
+        noticeStatus.textContent = 'Published ✅';
+        showToast('Notice published');
+        setTimeout(closeNoticeModal, 700);
+      }catch(err){
+        console.error(err);
+        noticeStatus.textContent = 'Failed to publish.';
+      }
+    });
+
+    // Notices: Edit / Remove
+    function fmtDate(iso){
+      try{ return new Date(iso).toLocaleString(); }catch{ return ''; }
+    }
+    async function fetchNotices(){
+      let snap;
+      try{
+        snap = await getDocs(query(collection(db, NOTICES), orderBy('publishedAt', 'desc')));
+      }catch{
+        snap = await getDocs(collection(db, NOTICES));
+      }
+      const list = [];
+      snap.forEach(d=>{
+        const data = d.data()||{};
+        list.push({ id: d.id, ...data });
+      });
+      allNotices = list;
+    }
+    function fillSelectWithNotices(selectEl){
+      selectEl.innerHTML = '';
+      const opt0 = document.createElement('option');
+      opt0.value = '';
+      opt0.textContent = 'Select a notice…';
+      selectEl.appendChild(opt0);
+      for (const n of allNotices){
+        const t = (n.title || 'Untitled');
+        const when = n.publishedAt && n.publishedAt.toDate ? n.publishedAt.toDate().toLocaleString() : '';
+        const o = document.createElement('option');
+        o.value = n.id;
+        o.textContent = when ? `${t} — ${when}` : t;
+        selectEl.appendChild(o);
+      }
+    }
+
+    // Edit Notice
+    function openEditNoticeModal(){
+      editNoticeForm.reset();
+      editNoticeStatus.textContent = '';
+      eTitle.value = eTag.value = eContent.value = eLink.value = eImageUrl.value = '';
+      editNoticeModal.classList.add('show');
+      (async ()=>{
+        await fetchNotices();
+        fillSelectWithNotices(editNoticeSelect);
+      })();
+    }
+    function closeEditNoticeModal(){ editNoticeModal.classList.remove('show'); }
+    editNoticeBtn.addEventListener('click', openEditNoticeModal);
+    cancelEditNoticeBtn.addEventListener('click', closeEditNoticeModal);
+    editNoticeModal.addEventListener('click', (e)=>{ if(e.target===editNoticeModal) closeEditNoticeModal(); });
+
+    editNoticeSelect.addEventListener('change', ()=>{
+      const id = editNoticeSelect.value;
+      const n = allNotices.find(x=>x.id===id);
+      if (!n){
+        eTitle.value = eTag.value = eContent.value = eLink.value = eImageUrl.value = '';
+        return;
+      }
+      eTitle.value = n.title || '';
+      eTag.value = n.tag || '';
+      eContent.value = n.content || '';
+      eLink.value = n.link || '';
+      eImageUrl.value = n.imageUrl || '';
+    });
+
+    editNoticeForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const id = editNoticeSelect.value;
+      if (!id){ editNoticeStatus.textContent = 'Please select a notice.'; return; }
+      editNoticeStatus.textContent = 'Saving...';
+      try{
+        await updateDoc(doc(db, NOTICES, id), {
+          title: eTitle.value.trim(),
+          tag: eTag.value.trim(),
+          content: eContent.value.trim(),
+          link: eLink.value.trim(),
+          imageUrl: eImageUrl.value.trim(),
+          updatedAt: serverTimestamp()
+        });
+        editNoticeStatus.textContent = 'Saved ✅';
+        showToast('Notice updated');
+        // refresh cached list title to reflect changes
+        const idx = allNotices.findIndex(x=>x.id===id);
+        if (idx>-1){
+          allNotices[idx] = { ...allNotices[idx],
+            title: eTitle.value.trim(), tag: eTag.value.trim(), content: eContent.value.trim(),
+            link: eLink.value.trim(), imageUrl: eImageUrl.value.trim()
+          };
+          fillSelectWithNotices(editNoticeSelect);
+          editNoticeSelect.value = id;
+        }
+        setTimeout(closeEditNoticeModal, 700);
+      }catch(err){
+        console.error(err);
+        editNoticeStatus.textContent = 'Failed to save.';
+      }
+    });
+
+    // Remove Notice
+    function openRemoveNoticeModal(){
+      removeNoticeForm.reset();
+      removeNoticeStatus.textContent = '';
+      removeNoticeModal.classList.add('show');
+      (async ()=>{
+        await fetchNotices();
+        fillSelectWithNotices(removeNoticeSelect);
+      })();
+    }
+    function closeRemoveNoticeModal(){ removeNoticeModal.classList.remove('show'); }
+    removeNoticeBtn.addEventListener('click', openRemoveNoticeModal);
+    cancelRemoveNoticeBtn.addEventListener('click', closeRemoveNoticeModal);
+    removeNoticeModal.addEventListener('click', (e)=>{ if(e.target===removeNoticeModal) closeRemoveNoticeModal(); });
+
+    removeNoticeForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const id = removeNoticeSelect.value;
+      if (!id){ removeNoticeStatus.textContent = 'Please select a notice.'; return; }
+      removeNoticeStatus.textContent = 'Deleting...';
+      try{
+        await deleteDoc(doc(db, NOTICES, id));
+        removeNoticeStatus.textContent = 'Deleted ✅';
+        showToast('Notice removed');
+        // remove from cache and refresh selects
+        allNotices = allNotices.filter(x=>x.id!==id);
+        fillSelectWithNotices(removeNoticeSelect);
+        fillSelectWithNotices(editNoticeSelect);
+        setTimeout(closeRemoveNoticeModal, 700);
+      }catch(err){
+        console.error(err);
+        removeNoticeStatus.textContent = 'Failed to delete.';
+      }
+    });
+
+    // Analytics (charts)
+    function makePie(canvasId, labels, values, title){
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return null;
+      const data = {
+        labels,
+        datasets: [{
+          label: title,
+          data: values,
+          backgroundColor: [
+            '#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#84cc16','#f97316'
+          ],
+          borderColor: 'rgba(255,255,255,.08)',
+          borderWidth: 1
+        }]
+      };
+      return new Chart(ctx, {
+        type: 'pie',
+        data,
+        options: {
+          plugins: {
+            legend: { labels: { color: '#cbd5e1' } }
+          }
+        }
+      });
+    }
+
+    function renderAnalyticsCharts(){
+      chartStatus && chartStatus.destroy();
+      chartCourse && chartCourse.destroy();
+      chartYear && chartYear.destroy();
+
+      const byStatus = countBy(allComplaints, c=>c.status||'pending');
+      chartStatus = makePie('chartStatus', Object.keys(byStatus), Object.values(byStatus), 'Status');
+
+      const byCourse = countBy(allComplaints, c=>(c.course||'Unknown'));
+      chartCourse = makePie('chartCourse', Object.keys(byCourse), Object.values(byCourse), 'Course');
+
+      const byYear = countBy(allComplaints, c=>(c.year||'Unknown'));
+      chartYear = makePie('chartYear', Object.keys(byYear), Object.values(byYear), 'Year');
+    }
+
+    function countBy(list, keyFn){
+      const map = {};
+      for (const x of list){
+        const k = keyFn(x);
+        map[k] = (map[k]||0) + 1;
+      }
+      return map;
+    }
+
+    // Tabs & Refresh
+    tabBtns.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        tabBtns.forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        sections.forEach(s=>s.classList.remove('active'));
+        document.getElementById(tab).classList.add('active');
+        if (tab === 'analytics'){
+          renderAnalyticsCharts();
+        }
+      });
+    });
+
+    searchInput.addEventListener('input', ()=>{
+      renderTable(getFilteredForDashboard(), dashBody);
+    });
+    searchClearBtn.addEventListener('click', ()=>{
+      searchInput.value = '';
+      renderTable(getFilteredForDashboard(), dashBody);
+    });
+
+    async function refreshAll(){
+      try{
+        await fetchComplaints();
+        renderCounts(allComplaints);
+        renderTable(getFilteredForDashboard(), dashBody);
+        renderTable(getNewComplaints(), newBody);
+        renderAnalyticsCharts();
+      }catch(e){
+        console.error(e);
+        showToast('Failed to load data');
+      }
+    }
+
+    refreshDashBtn.addEventListener('click', refreshAll);
+    refreshNewBtn.addEventListener('click', refreshAll);
+    refreshAnalyticsBtn.addEventListener('click', refreshAll);
+
+    async function initialLoad(){
+      try{
+        await refreshAll();
+      }catch(e){
+        console.error(e);
+        showToast('Failed to load data');
+      }
+    }
+  </script>
+</body>
+</html>
