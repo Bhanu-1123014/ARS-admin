@@ -442,6 +442,7 @@
                 <th>Phone</th>
                 <th>Course</th>
                 <th>Year</th>
+                <th>Description</th>
                 <th>Status</th>
                 <th style="width:260px">Action</th>
               </tr>
@@ -474,6 +475,7 @@
                 <th>Phone</th>
                 <th>Course</th>
                 <th>Year</th>
+                <th>Description</th>
                 <th>Status</th>
                 <th style="width:260px">Action</th>
               </tr>
@@ -831,6 +833,7 @@
         course: d.course || '',
         year: d.year || d.academicYear || '',
         status,
+        description: d.description || '',
         adminMessage: d.adminMessage || '',
         createdAt: d.createdAt || null,
       };
@@ -983,7 +986,7 @@
       if (!list.length){
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 9;
+        td.colSpan = 10;
         td.className = 'subtle';
         td.textContent = 'No data';
         tr.appendChild(td);
@@ -1003,6 +1006,7 @@
           <td>${escapeHtml(c.phone||'')}</td>
           <td>${escapeHtml(c.course||'')}</td>
           <td>${escapeHtml(c.year||'')}</td>
+          <td style="max-width:220px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(c.description||'')}</td>
           <td>
             <span class="badge ${c.status==='resolved'?'resolved':'pending'}">${c.status==='resolved'?'Resolved':'Pending'}</span>
           </td>
