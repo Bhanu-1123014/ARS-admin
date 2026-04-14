@@ -268,6 +268,48 @@
     }
     .toast.show{opacity:1;transform:translateX(0)}
 
+    /* New-complaint notification popup */
+    .notif-popup{
+      position:fixed;top:20px;right:20px;width:min(340px,90vw);
+      background:linear-gradient(135deg,#0d1421,#091828);
+      border:1px solid rgba(245,158,11,.55);border-radius:14px;
+      box-shadow:0 0 36px rgba(245,158,11,.28),0 8px 32px rgba(0,0,0,.6);
+      z-index:2000;padding:16px 18px;
+      animation:notifSlideIn .4s cubic-bezier(.34,1.56,.64,1);
+    }
+    .notif-popup.hidden{display:none}
+    @keyframes notifSlideIn{
+      from{opacity:0;transform:translateX(120px) scale(.9)}
+      to{opacity:1;transform:translateX(0) scale(1)}
+    }
+    .notif-header{
+      display:flex;align-items:center;justify-content:space-between;
+      margin-bottom:10px;
+    }
+    .notif-title{
+      font-family:'Orbitron',system-ui,sans-serif;
+      font-size:13px;font-weight:700;letter-spacing:.5px;
+      color:#fbbf24;display:flex;align-items:center;gap:6px;
+    }
+    .notif-close{
+      appearance:none;background:transparent;border:none;
+      color:var(--muted);cursor:pointer;font-size:16px;
+      padding:0 2px;line-height:1;transition:color .2s;
+    }
+    .notif-close:hover{color:var(--text)}
+    .notif-body{font-size:12px;color:var(--text);line-height:1.6;margin-bottom:12px}
+    .notif-body strong{color:#fbbf24}
+    .notif-footer{display:flex;gap:8px;justify-content:flex-end}
+    .notif-dot{
+      display:inline-block;width:8px;height:8px;border-radius:50%;
+      background:#fbbf24;
+      animation:dotPulse 1s ease-in-out infinite;
+    }
+    @keyframes dotPulse{
+      0%,100%{box-shadow:0 0 4px rgba(251,191,36,.4)}
+      50%{box-shadow:0 0 12px rgba(251,191,36,.9)}
+    }
+
     /* Login (centered) */
     .login-wrap{height:100vh;display:grid;place-items:center;padding:20px}
     .login-card{
@@ -401,7 +443,7 @@
                 <th>Course</th>
                 <th>Year</th>
                 <th>Status</th>
-                <th style="width:220px">Action</th>
+                <th style="width:260px">Action</th>
               </tr>
             </thead>
             <tbody id="dashTableBody">
@@ -433,7 +475,7 @@
                 <th>Course</th>
                 <th>Year</th>
                 <th>Status</th>
-                <th style="width:220px">Action</th>
+                <th style="width:260px">Action</th>
               </tr>
             </thead>
             <tbody id="newTableBody">
@@ -595,6 +637,36 @@
     </div>
   </div>
 
+  <!-- New-complaint notification popup -->
+  <div id="newComplaintNotif" class="notif-popup hidden">
+    <div class="notif-header">
+      <div class="notif-title"><span class="notif-dot"></span> New Complaint!</div>
+      <button class="notif-close" id="notifCloseBtn" title="Dismiss">✕</button>
+    </div>
+    <div class="notif-body" id="notifBody"></div>
+    <div class="notif-footer">
+      <button class="btn" id="notifDismissBtn" aria-label="Dismiss notification">Dismiss</button>
+      <button class="btn primary" id="notifViewBtn" aria-label="View new complaints">View</button>
+    </div>
+  </div>
+
+  <!-- Admin Message Modal -->
+  <div id="msgModal" class="modal-backdrop">
+    <div class="modal card">
+      <div class="title">Send Message to Student</div>
+      <div class="subtle" id="msgModalSubtitle"></div>
+      <div class="spacer"></div>
+      <label for="msgTextarea">Your message / response</label>
+      <textarea id="msgTextarea" class="input" rows="5" placeholder="Write your response or instructions for the student…" style="width:100%;resize:vertical;"></textarea>
+      <div class="spacer"></div>
+      <div class="toolbar" style="justify-content:flex-end;">
+        <button type="button" id="cancelMsgBtn" class="btn">Cancel</button>
+        <button type="button" id="sendMsgBtn" class="btn primary">Send Message</button>
+      </div>
+      <div id="msgStatus" class="subtle" style="margin-top:6px;"></div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="toast"></div>
 
@@ -606,7 +678,7 @@
     // Firebase (no auth)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
-      getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp
+      getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, onSnapshot
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -681,6 +753,22 @@
 
     const toast = document.getElementById('toast');
 
+    // Notification popup elements
+    const newComplaintNotif = document.getElementById('newComplaintNotif');
+    const notifBody = document.getElementById('notifBody');
+    const notifCloseBtn = document.getElementById('notifCloseBtn');
+    const notifDismissBtn = document.getElementById('notifDismissBtn');
+    const notifViewBtn = document.getElementById('notifViewBtn');
+
+    // Message modal elements
+    const msgModal = document.getElementById('msgModal');
+    const msgTextarea = document.getElementById('msgTextarea');
+    const msgModalSubtitle = document.getElementById('msgModalSubtitle');
+    const cancelMsgBtn = document.getElementById('cancelMsgBtn');
+    const sendMsgBtn = document.getElementById('sendMsgBtn');
+    const msgStatus = document.getElementById('msgStatus');
+    let currentMsgComplaintId = null;
+
     // Charts
     let chartStatus, chartCourse, chartYear;
 
@@ -713,6 +801,7 @@
     }
     function logout(){
       localStorage.removeItem('admin_logged_in');
+      if (complaintsUnsub){ complaintsUnsub(); complaintsUnsub = null; }
       appEl.classList.add('hidden');
       loginScreen.classList.remove('hidden');
       adminPassword.value = '';
@@ -742,23 +831,126 @@
         course: d.course || '',
         year: d.year || d.academicYear || '',
         status,
+        adminMessage: d.adminMessage || '',
         createdAt: d.createdAt || null,
       };
     }
 
-    async function fetchComplaints(){
-      let snap;
-      try {
-        snap = await getDocs(query(collection(db, COMPLAINTS), orderBy('createdAt', 'desc')));
-      } catch {
-        snap = await getDocs(collection(db, COMPLAINTS));
+    // Real-time listener state
+    let knownComplaintIds = new Set();
+    let isInitialLoad = true;
+    let complaintsUnsub = null;
+    function showNotification(complaints){
+      const count = complaints.length;
+      notifBody.textContent = '';
+      if (count === 1){
+        const c = complaints[0];
+        const strong = document.createElement('strong');
+        strong.textContent = c.name || 'Unknown';
+        notifBody.appendChild(strong);
+        notifBody.appendChild(document.createTextNode(` (${c.roll || c.email || ''}) submitted a new complaint.`));
+      } else {
+        const strong = document.createElement('strong');
+        strong.textContent = `${count} new complaints`;
+        notifBody.appendChild(strong);
+        notifBody.appendChild(document.createTextNode(' have arrived.'));
       }
-      const list = [];
-      snap.forEach(docSnap=>{
-        const data = docSnap.data() || {};
-        list.push(normalizeComplaint({ id: docSnap.id, ...data }));
+      newComplaintNotif.classList.remove('hidden');
+    }
+    function hideNotification(){
+      newComplaintNotif.classList.add('hidden');
+    }
+    notifCloseBtn.addEventListener('click', hideNotification);
+    notifDismissBtn.addEventListener('click', hideNotification);
+    notifViewBtn.addEventListener('click', ()=>{
+      hideNotification();
+      // Switch to "New Complaints" tab
+      tabBtns.forEach(b=>b.classList.remove('active'));
+      sections.forEach(s=>s.classList.remove('active'));
+      const newTab = document.querySelector('[data-tab="new"]');
+      if (newTab) newTab.classList.add('active');
+      document.getElementById('new').classList.add('active');
+    });
+
+    // Message modal logic
+    function openMsgModal(complaint){
+      currentMsgComplaintId = complaint.id;
+      msgModalSubtitle.textContent = `To: ${complaint.name || 'Unknown'} (${complaint.roll || complaint.email || ''})`;
+      msgTextarea.value = complaint.adminMessage || '';
+      msgStatus.textContent = '';
+      msgModal.classList.add('show');
+      msgTextarea.focus();
+    }
+    function closeMsgModal(){
+      msgModal.classList.remove('show');
+      currentMsgComplaintId = null;
+    }
+    cancelMsgBtn.addEventListener('click', closeMsgModal);
+    msgModal.addEventListener('click', (e)=>{ if(e.target === msgModal) closeMsgModal(); });
+    sendMsgBtn.addEventListener('click', async ()=>{
+      if (!currentMsgComplaintId) return;
+      const message = msgTextarea.value.trim();
+      msgStatus.textContent = 'Sending...';
+      sendMsgBtn.disabled = true;
+      try{
+        await updateDoc(doc(db, COMPLAINTS, currentMsgComplaintId), {
+          adminMessage: message,
+          adminMessageAt: serverTimestamp()
+        });
+        const item = allComplaints.find(x=>x.id===currentMsgComplaintId);
+        if (item){ item.adminMessage = message; }
+        msgStatus.textContent = 'Message sent ✅';
+        showToast('Message sent to student');
+        setTimeout(closeMsgModal, 700);
+      }catch(err){
+        console.error(err);
+        msgStatus.textContent = 'Failed to send message.';
+      }finally{
+        sendMsgBtn.disabled = false;
+      }
+    });
+
+    function startComplaintsListener(){
+      if (complaintsUnsub) complaintsUnsub(); // stop any previous listener
+      isInitialLoad = true;
+      knownComplaintIds = new Set();
+
+      let q;
+      try {
+        q = query(collection(db, COMPLAINTS), orderBy('createdAt', 'desc'));
+      } catch {
+        q = collection(db, COMPLAINTS);
+      }
+
+      complaintsUnsub = onSnapshot(q, (snap)=>{
+        const newlyArrived = [];
+        const list = [];
+
+        snap.forEach(docSnap=>{
+          const data = docSnap.data() || {};
+          const c = normalizeComplaint({ id: docSnap.id, ...data });
+          list.push(c);
+          if (!isInitialLoad && !knownComplaintIds.has(docSnap.id)){
+            newlyArrived.push(c);
+          }
+          knownComplaintIds.add(docSnap.id);
+        });
+
+        allComplaints = list;
+
+        if (!isInitialLoad && newlyArrived.length > 0){
+          showNotification(newlyArrived);
+          showToast(`🔔 ${newlyArrived.length} new complaint${newlyArrived.length>1?'s':''} arrived!`, 3000);
+        }
+
+        isInitialLoad = false;
+
+        renderCounts(allComplaints);
+        renderTable(getFilteredForDashboard(), dashBody);
+        renderTable(getNewComplaints(), newBody);
+      }, (err)=>{
+        console.error('Complaints listener error:', err);
       });
-      allComplaints = list;
     }
 
     function getFilteredForDashboard(){
@@ -815,21 +1007,24 @@
             <span class="badge ${c.status==='resolved'?'resolved':'pending'}">${c.status==='resolved'?'Resolved':'Pending'}</span>
           </td>
           <td>
-            <div style="display:flex; gap:8px; align-items:center;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               <select class="input status-select">
                 <option value="pending" ${c.status==='pending'?'selected':''}>Pending</option>
                 <option value="resolved" ${c.status==='resolved'?'selected':''}>Resolved</option>
               </select>
               <button class="btn success update-btn">Update</button>
+              <button class="btn msg-btn" aria-label="${c.adminMessage ? 'Edit admin message' : 'Send message to student'}" title="${c.adminMessage ? 'Edit message' : 'Send message'}">💬${c.adminMessage ? ' Edit' : ' Msg'}</button>
             </div>
           </td>
         `;
         const select = tr.querySelector('.status-select');
         const updateBtn = tr.querySelector('.update-btn');
+        const msgBtn = tr.querySelector('.msg-btn');
         updateBtn.addEventListener('click', async ()=>{
           const newStatus = select.value;
           await updateComplaintStatus(c.id, newStatus, tr);
         });
+        msgBtn.addEventListener('click', ()=>{ openMsgModal(c); });
 
         tbodyEl.appendChild(tr);
       }
@@ -1118,10 +1313,8 @@
 
     async function refreshAll(){
       try{
-        await fetchComplaints();
-        renderCounts(allComplaints);
-        renderTable(getFilteredForDashboard(), dashBody);
-        renderTable(getNewComplaints(), newBody);
+        // Re-start real-time listener (also re-fetches data)
+        startComplaintsListener();
         renderAnalyticsCharts();
       }catch(e){
         console.error(e);
@@ -1133,9 +1326,9 @@
     refreshNewBtn.addEventListener('click', refreshAll);
     refreshAnalyticsBtn.addEventListener('click', refreshAll);
 
-    async function initialLoad(){
+    function initialLoad(){
       try{
-        await refreshAll();
+        startComplaintsListener();
       }catch(e){
         console.error(e);
         showToast('Failed to load data');
