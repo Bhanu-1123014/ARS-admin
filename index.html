@@ -6,7 +6,7 @@
   <title>Admin Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <style>
     :root{
       --bg:#060a10;
@@ -798,9 +798,10 @@
         tbodyEl.appendChild(tr);
         return;
       }
+      const ROW_ANIMATION_DELAY_MS = 35;
       for (const [i, c] of list.entries()){
         const tr = document.createElement('tr');
-        tr.style.animationDelay = `${i * 35}ms`;
+        tr.style.animationDelay = `${i * ROW_ANIMATION_DELAY_MS}ms`;
 
         tr.innerHTML = `
           <td>${escapeHtml(c.arId||'')}</td>
